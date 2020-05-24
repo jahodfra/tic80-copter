@@ -1,42 +1,7 @@
-import collections
-import heapq
-
-import PIL.ImageShow
 import PIL.Image
-import PIL.ImageColor
-import PIL.ImageFilter
-import itertools
 import math
-import struct
 import sys
 
-
-def huffman(counter):
-    items = [(c, k) for k, c in counter.items()]
-    heapq.heapify(items)
-    tree = {i: i for i in counter}
-    i = max(counter) + 1
-    while items:
-        c1, k1 = heapq.heappop(items)
-        c2, k2 = heapq.heappop(items)
-        tree[i] = tree[k1], tree[k2]
-        if items:
-            heapq.heappush(items, (c1 + c2, i))
-            i += 1
-        else:
-            return to_bin(tree[i])
-
-def to_bin(node):
-    if isinstance(node, tuple):
-        left, right = node
-        mapping = {}
-        for k, v in to_bin(left).items():
-            mapping[k] = '0'+v
-        for k, v in to_bin(right).items():
-            mapping[k] = '1'+v
-        return mapping
-    else:
-        return {node: ''}
 
 CLEAR_CODE=2**16-1
 
@@ -108,34 +73,6 @@ assert shortest_repeat("abcabc") == 3
 assert shortest_repeat("abcabca") == 3
 assert find_match("abcab", "xxxxabc") == 4
 
-def encode_lz77(data):
-    max_window_size = 2**15 # 32K
-    max_chain_size = 2**5 # 32
-    chain = bytearray()
-    result = []
-    stop = 255
-    for i, d in enumerate(data + bytes([stop])):
-        window = data[max(0, i-max_window_size) : i]
-        chain.append(d)
-        if d == stop or find_match(chain, window) == -1 or len(chain) > max_chain_size:
-            chain.pop()
-            start = find_match(chain, window)
-            size = len(chain)
-            # 4b per d, 11b per start, 5b per size
-            word = d << 15 | start << 5 | size-1
-            result.append(word // 256**2)
-            result.append(word // 256 % 256)
-            result.append(word % 256)
-            chain = bytearray()
-    return result
-
-def get_huffman_factor(row):
-    c = collections.Counter(row)
-    enc = huffman(c)
-    #print([(c, f) for c, f in sorted(enc.items())])
-    return sum(len(enc[c]) for c in row) // 8
-
-import zlib, gzip, bz2
 
 def main():
     source = PIL.Image.open(sys.argv[1])
@@ -167,17 +104,8 @@ def main():
     open("texture.spr","wb").write(spritepart)
     decoded = decode_lzw(encoded)
     assert row == decoded
-
     print(f"after lzw {2*len(encoded)}B")
-    print(f"different symbols: {len(set(encoded))}")
 
-    lzw_factor = get_huffman_factor(encoded)
-    print(f"after lzw+huffman {lzw_factor}B")
-
-    print(f"after zlib {len(zlib.compress(bytes(row), level=9))}B")
-    print(f"after gzip {len(gzip.compress(bytes(row)))}B")
-    print(f"after bz2 {len(bz2.compress(bytes(row)))}B")
-    print(f"after lz77 {len(encode_lz77(bytes(row)))}B")
 
 if __name__ == "__main__":
     main()
