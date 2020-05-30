@@ -49,38 +49,14 @@ def decode_lzw(codes, S=16):
         result.extend(ret)
     return result
 
-def shortest_repeat(chain):
-    """return min i, such that chain[:i] * R == chain"""
-    L = len(chain)
-    for i in range(1, L-1):
-        if (chain[:i] * L)[:L] == chain:
-            return i
-    return -1
-
-
-def find_match(chain, window):
-    start = window.find(chain)
-    if start == -1:
-        i = shortest_repeat(chain)
-        if i == -1:
-            return -1
-        if window[-i:] == chain[:i]:
-            return len(window)-i
-        
-    return start
-
-assert shortest_repeat("abcabc") == 3
-assert shortest_repeat("abcabca") == 3
-assert find_match("abcab", "xxxxabc") == 4
-
 
 def main():
     source = PIL.Image.open(sys.argv[1])
     w, h = source.size
     data = source.load()
+
+    # remove resolution in polar regions
     row = []
-    new_image = source.copy()
-    print(f"before: {w * h // 2}B")
     new_data = []
     for y in range(h):
         rw = int(w * math.sin((y+1) / (h+2) * math.pi))
@@ -89,22 +65,27 @@ def main():
            row.append(item)
            new_data.append(item)
         new_data.extend([0]*(w-rw))
-    new_image.putdata(new_data)
-    new_image.save("converted.png")
-    print(f"after {len(row)//2}B")
+
+    # Compress
+    print(f"uncompressed {len(row)//2}B")
     encoded = encode_lzw(row)
+    print(f"compressed by lzw {2*len(encoded)}B")
+
+    # Write output files
     compressed = []
     for e in encoded:
         compressed.append(e//256)
         compressed.append(e%256)
+    L = len(compressed)
+    mappart = bytearray([L//256, L%256])
+    mappart.extend(compressed[:32640-2])
+    spritepart = bytes(compressed[32640-2:])
+    open(sys.argv[2] + ".map","wb").write(mappart)
+    open(sys.argv[2] + ".tiles","wb").write(spritepart)
 
-    mappart = bytes(compressed[:32640])
-    spritepart = bytes(compressed[32640:])
-    open("texture.map","wb").write(mappart)
-    open("texture.spr","wb").write(spritepart)
+    # Check decompression algorithm
     decoded = decode_lzw(encoded)
     assert row == decoded
-    print(f"after lzw {2*len(encoded)}B")
 
 
 if __name__ == "__main__":
