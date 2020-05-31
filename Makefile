@@ -10,7 +10,7 @@ all: build run
 build: $(objects)
 	mkdir -p $(BUILD_DIR)
 run:
-	$(TIC_BIN) $(BUILD_DIR)/copter.tic
+	$(TIC_BIN) $(BUILD_DIR)/copter.tic -skip
 
 style:
 	luastyle -i copter.lua

@@ -33,50 +33,48 @@ def decode_lzw(codes, S=16):
     result = []
     for code in [CLEAR_CODE] + codes:
         if code == CLEAR_CODE:
-            lookup = {i: bytes([i]) for i in range(S)}
-            next_lookup = len(lookup)
+            lookup = [bytes([i]) for i in range(S)]
             prefix = b""
             continue
-        if code in lookup:
+        if code < len(lookup):
             ret = lookup[code]
             if prefix:
-                lookup[next_lookup] = prefix + lookup[code][:1]
-                next_lookup += 1
+                lookup.append(prefix + lookup[code][:1])
+            prefix = ret
+            result.extend(ret)
         else:
-            ret = lookup[next_lookup] = prefix + prefix[:1]
-            next_lookup += 1
-        prefix = ret
-        result.extend(ret)
+            prefix = prefix + prefix[:1]
+            lookup.append(prefix)
+            result.extend(prefix)
     return result
 
 
 def main():
     source = PIL.Image.open(sys.argv[1])
     w, h = source.size
-    data = source.load()
+    image_data = source.load()
 
     # remove resolution in polar regions
-    row = []
-    new_data = []
+    orig_data = []
     for y in range(h):
         rw = int(w * math.sin((y+1) / (h+2) * math.pi))
         for x in range(rw):
-           item = data[x * w // rw, y]
-           row.append(item)
-           new_data.append(item)
-        new_data.extend([0]*(w-rw))
+           item = image_data[x * w // rw, y]
+           orig_data.append(item)
+    print("checksum: ", sum(orig_data))
 
     # Compress
-    print(f"uncompressed {len(row)//2}B")
-    encoded = encode_lzw(row)
+    print(f"uncompressed {len(orig_data)//2}B")
+    encoded = encode_lzw(orig_data)
     print(f"compressed by lzw {2*len(encoded)}B")
+    print("checksum encoded: ", sum(encoded))
 
     # Write output files
     compressed = []
     for e in encoded:
         compressed.append(e//256)
         compressed.append(e%256)
-    L = len(compressed)
+    L = len(encoded)
     mappart = bytearray([L//256, L%256])
     mappart.extend(compressed[:32640-2])
     spritepart = bytes(compressed[32640-2:])
@@ -85,7 +83,7 @@ def main():
 
     # Check decompression algorithm
     decoded = decode_lzw(encoded)
-    assert row == decoded
+    assert orig_data == decoded
 
 
 if __name__ == "__main__":

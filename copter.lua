@@ -3,46 +3,111 @@
 -- desc:   Flight around the world.
 -- script: lua
 
-W=2048
-H=1024
+W=1024
+H=512
+
+function table_str(o)
+  if type(o) == 'table' then
+    local s = '{ '
+    for k,v in pairs(o) do
+      if type(k) ~= 'number' then k = '"'..k..'"' end
+      s = s .. '['..k..'] = ' .. table_str(v) .. ','
+    end
+    return s .. '} '
+  else
+    return tostring(o)
+  end
+end
+
+function clone(t)
+  local tn={}
+  for i=1, #t do
+    tn[i]=t[i]
+  end
+  return tn
+end
+
+function extend(t1,t2)
+  for i=1, #t2 do
+    t1[#t1+1]=t2[i]
+  end
+end
 
 function loadmap()
-  local m={}
-  local i=0
-  local s=0
-  while i<W*H do
-    local x=peek(0x8000+s)
-    s=s+1
-    local ch=(x&0x80)>>7
-    local count=(x&0x7f)+1
-    for j=0, count do
-      m[i+j]=ch
-    end
-    i=i+count
+  --[[
+    Unzip data starting in map and continuing with tiles memory
+  ]]
+  local result={}
+  local L=peek(0x8000)<<8 | peek(0x8001)
+  local si=0x8000
+  local CLEAR_CODE=0xFFFF
+  local lookup={}
+  local prefix={}
+  for k=0, 15 do
+    lookup[k]={k}
   end
-  return m
+  local encoded_sum=0
+  local clone=clone
+  for i=1, L do
+    si=si+2
+    if si>=0xff80 then
+      si=0x4000
+    end
+    local code=peek(si)<<8 | peek(si+1)
+    encoded_sum=encoded_sum + code
+    if code==CLEAR_CODE then
+      prefix={}
+      lookup = {}
+      for k=0, 15 do
+        lookup[k]={k}
+      end
+    elseif code<=#lookup then
+      local ret=lookup[code]
+      if #prefix>0 then
+        local newvalue=clone(prefix)
+        newvalue[#newvalue+1] = ret[1]
+        lookup[#lookup+1] = newvalue
+      end
+      prefix=ret
+      extend(result,ret)
+    else
+      prefix=clone(prefix)
+      prefix[#prefix+1] = prefix[1]
+      lookup[#lookup+1] = prefix
+      extend(result,prefix)
+    end
+  end
+  if encoded_sum ~= 116563337 then
+    trace("encoded sum error: "..encoded_sum)
+  end
+  local sum=0
+  for i=1, #result do
+    sum=sum+result[i]
+  end
+  if sum ~= 1034904 then
+    trace("checksum error: "..sum)
+  end
+  return result
 end
 
-function compress(m)
-  local nm={}
-  local y=0
+function compute_rows()
   local floor=math.floor
+  local sin=math.sin
   local rows={}
-  for y=1, H-1 do
-    local rw=floor(math.sin(3.14159*y/H)*W)
+  local starts={}
+  local start=0
+  for y=0, H-1 do
+    local rw=floor(sin(3.14159*(y+1)/(H+2))*W)
     rows[y]=rw
-    local row={}
-    for x=0, rw do
-      row[x]=m[floor(x*W/rw)+y*W]
-    end
-    nm[y]=row
+    start=start+rw
+    starts[y]=start
   end
-  return nm,rows
+  return starts,rows
 end
 
-
-m=loadmap()
-m,rows=compress(m)
+local starts, rows
+starts,rows=compute_rows()
+local m=loadmap()
 
 
 function quat_mul(q1, q2)
@@ -110,7 +175,7 @@ function srandom(i)
   return random_v[i%1000]
 end
 
-function draw_strip2()
+function draw_strip()
   local points=0
   local sin=math.sin
   local cos=math.cos
@@ -146,13 +211,14 @@ function draw_strip2()
     local costheta=cos(ptheta)
     local ascale=2*pi/rw
     local minx, rangex
+    local start_index=starts[b]
     rangex=min(rw,max(minrange, floor(rw*view_angle)))
     minx=floor(phi*rw-rangex*0.5)%rw
     if b<polar_region or b>H-polar_region then
       rangex=rw
     end
     for a=minx, minx+rangex do
-      local cell=m[b][a%rw]
+      local cell=m[start_index+a%rw]
       if cell and cell>0 then
         points=points+1
         local pphi=a*ascale
@@ -163,8 +229,8 @@ function draw_strip2()
         local ry=px*m21+py*m22+pz*m23
         local rz=px*m31+py*m32+pz*m33				
         if rz < 0 then
-          --spr(32,120+rx*R, 68+ry*R, 0)
-          pix(120+rx*R, 68+ry*R, 14)
+          spr(32+cell,120+rx*R, 68+ry*R, 0)
+          --pix(120+rx*R, 68+ry*R, cell)
         end
       end
     end
@@ -197,7 +263,7 @@ function TIC()
 
 
   cls(2)
-  draw_strip2()
+  draw_strip()
   --print(quat_str(rotation),100, 100)
 end
 
