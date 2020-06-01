@@ -19,11 +19,12 @@ $(BUILD_DIR)/topomap.map $(BUILD_DIR)/topomap.tiles: topomap.png prepare_map.py
 	python3 -m prepare_map topomap.png $(BUILD_DIR)/topomap
 
 
-$(BUILD_DIR)/copter.tic: copter.lua $(BUILD_DIR)/topomap.map $(BUILD_DIR)/topomap.tiles
+$(BUILD_DIR)/copter.tic: copter.lua $(BUILD_DIR)/topomap.map $(BUILD_DIR)/topomap.tiles sprites.gif
 	python3 -m make_cartridge \
 	--code=copter.lua \
 	--map=$(BUILD_DIR)/topomap.map \
 	--tiles=$(BUILD_DIR)/topomap.tiles \
+	--sprites=sprites.gif \
 	-o $(BUILD_DIR)/copter.tic
   
 clean:

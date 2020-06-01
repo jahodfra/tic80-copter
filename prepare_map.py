@@ -1,11 +1,20 @@
+"""
+https://visibleearth.nasa.gov/images/61004/new-land-cover-classification-maps
+
+Types:
+  0 - water
+  1-16 accoding to guide
+  17 - lakes and rivers
+"""
 import PIL.Image
 import math
 import sys
 
 
 CLEAR_CODE=2**16-1
+COLORS = 18
 
-def encode_lzw(data, S=16):
+def encode_lzw(data, S=COLORS):
     lookup = {bytes([i]): i for i in range(S)}
     result = []
     chain = bytes()
@@ -29,7 +38,7 @@ def encode_lzw(data, S=16):
     return result
 
 
-def decode_lzw(codes, S=16):
+def decode_lzw(codes, S=COLORS):
     result = []
     for code in [CLEAR_CODE] + codes:
         if code == CLEAR_CODE:
@@ -78,6 +87,8 @@ def main():
     mappart = bytearray([L//256, L%256])
     mappart.extend(compressed[:32640-2])
     spritepart = bytes(compressed[32640-2:])
+    if len(spritepart) > 8192:
+        raise ValueError(f"Cannot fit into sprite area ({len(spritepart)})")
     open(sys.argv[2] + ".map","wb").write(mappart)
     open(sys.argv[2] + ".tiles","wb").write(spritepart)
 

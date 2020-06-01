@@ -6,6 +6,7 @@
 W=1024
 H=512
 
+
 function table_str(o)
   if type(o) == 'table' then
     local s = '{ '
@@ -37,13 +38,14 @@ function loadmap()
   --[[
     Unzip data starting in map and continuing with tiles memory
   ]]
+  local S=18
   local result={}
   local L=peek(0x8000)<<8 | peek(0x8001)
   local si=0x8000
   local CLEAR_CODE=0xFFFF
   local lookup={}
   local prefix={}
-  for k=0, 15 do
+  for k=0,S-1 do
     lookup[k]={k}
   end
   local encoded_sum=0
@@ -58,7 +60,7 @@ function loadmap()
     if code==CLEAR_CODE then
       prefix={}
       lookup = {}
-      for k=0, 15 do
+      for k=0,S-1 do
         lookup[k]={k}
       end
     elseif code<=#lookup then
@@ -78,14 +80,14 @@ function loadmap()
     end
   end
   if encoded_sum ~= 116563337 then
-    trace("encoded sum error: "..encoded_sum)
+    trace("encoded sum: "..encoded_sum)
   end
   local sum=0
   for i=1, #result do
     sum=sum+result[i]
   end
   if sum ~= 1034904 then
-    trace("checksum error: "..sum)
+    trace("decoded sum: "..sum)
   end
   return result
 end
@@ -175,6 +177,13 @@ function srandom(i)
   return random_v[i%1000]
 end
 
+local SPR={
+  0, 1, 1, 1, 1,
+  1, 1, 1, 1, 1,
+  1, 1, 1, 2, 1,
+  1, 0,
+}
+
 function draw_strip()
   local points=0
   local sin=math.sin
@@ -218,7 +227,7 @@ function draw_strip()
       rangex=rw
     end
     for a=minx, minx+rangex do
-      local cell=m[start_index+a%rw]
+      local cell=SPR[m[start_index+a%rw]]
       if cell and cell>0 then
         points=points+1
         local pphi=a*ascale
@@ -229,7 +238,7 @@ function draw_strip()
         local ry=px*m21+py*m22+pz*m23
         local rz=px*m31+py*m32+pz*m33				
         if rz < 0 then
-          spr(32+cell,120+rx*R, 68+ry*R, 0)
+          spr(255+cell,120+rx*R, 68+ry*R, 0)
           --pix(120+rx*R, 68+ry*R, cell)
         end
       end
