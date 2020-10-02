@@ -210,7 +210,7 @@ function draw_strip()
   local theta=math.acos(g[4])
   local phi=math.atan2(g[3],g[2])/(2*pi)
   local my=floor(theta/pi*H)
-  local R=800 --1800
+  local R=750 --1800
   local quat_mul=quat_mul
   local view_angle=50/R
   local miny=max(1, floor(my-view_angle*H))
@@ -262,7 +262,7 @@ function draw_strip()
     local sprite=oversprites[i]
     spr(271+sprite[3], sprite[1], sprite[2], 0)
   end
-  print(points)
+  --print(points)
 end
 
 function quat_inverse(q)
@@ -277,20 +277,46 @@ function quat_str(q)
   return string.format("(%.3f,%.3f,%.3f,%.3f)",q[1],q[2],q[3],q[4])
 end
 
-speed=.01
+speed=.0008
 rot_speed=.01
+tick = 0
 
-function TIC()
-  if btn(0) then rot(1,speed,0,0)end
-  if btn(1) then rot(1,-speed,0,0)end
-  if btn(2) then rot(1,0,-speed,0)end
-  if btn(3) then rot(1,0,speed,0)end
-  if btn(4) then rot(1,0,0,-rot_speed)end
-  if btn(5) then rot(1,0,0,rot_speed)end
+abs = math.abs
 
-
-  cls(2)
-  draw_strip()
-  --print(quat_str(rotation),100, 100)
+function draw_copter(x, y, leaned)
+  phase = tick // 5 % 2
+  spr(289+leaned, x, y,0)
+  spr(304+phase+abs(leaned), x, y-2, 0)
 end
 
+function TIC()
+  local leaned=0
+  if btn(0) then
+    rot(1,speed,0,0)
+    leaned=-1
+  end
+  if btn(1) then
+    rot(1,-speed/2,0,0)
+    leaned=1
+  end
+  if btn(2) then rot(1,0,-speed/2,0)end
+  if btn(3) then rot(1,0,speed/2,0)end
+  if btn(4) then rot(1,0,0,rot_speed)end
+  if btn(5) then rot(1,0,0,-rot_speed)end
+  cls(2)
+
+  draw_strip()
+  local shift=4
+  phase = tick // 5 % 2
+  for i=0,15 do
+    poke4(2*0x3ff0+i,0)
+  end
+  draw_copter(120-4+shift, 68-4+shift+leaned*2+6, leaned)
+  for i=0,15 do
+    poke4(2*0x3ff0+i,i)
+  end
+  draw_copter(120-4, 68-4, -leaned)
+
+  print(quat_str(rotation),100, 100)
+  tick = tick + 1
+end
