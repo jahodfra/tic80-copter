@@ -178,9 +178,15 @@ function srandom(i)
 end
 
 local SPR={
-  0, 1, 1, 1, 1,
+  2, 3, 4, 1, 1,
   1, 1, 1, 1, 1,
   1, 1, 1, 2, 1,
+  5, 0,
+}
+local OVER={
+  0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0,
   1, 0,
 }
 
@@ -204,7 +210,7 @@ function draw_strip()
   local theta=math.acos(g[4])
   local phi=math.atan2(g[3],g[2])/(2*pi)
   local my=floor(theta/pi*H)
-  local R=600 --1800
+  local R=800 --1800
   local quat_mul=quat_mul
   local view_angle=50/R
   local miny=max(1, floor(my-view_angle*H))
@@ -212,6 +218,8 @@ function draw_strip()
   -- for polar regions the minrange needs to be larger
   local minrange=floor(W*view_angle)
   local polar_region=H*view_angle
+  local oversprites={}
+  local insert=table.insert
   for b=miny, maxy do
     
     local rw=rows[b]
@@ -227,7 +235,8 @@ function draw_strip()
       rangex=rw
     end
     for a=minx, minx+rangex do
-      local cell=SPR[m[start_index+a%rw]]
+      local tcell=m[start_index+a%rw]
+      local cell=SPR[tcell]
       if cell and cell>0 then
         points=points+1
         local pphi=a*ascale
@@ -238,11 +247,20 @@ function draw_strip()
         local ry=px*m21+py*m22+pz*m23
         local rz=px*m31+py*m32+pz*m33				
         if rz < 0 then
-          spr(255+cell,120+rx*R, 68+ry*R, 0)
-          --pix(120+rx*R, 68+ry*R, cell)
+          local sx=120+rx*R
+          local sy=68+ry*R
+          if OVER[tcell]>0 then
+            insert(oversprites,{sx,sy,cell})
+          end
+          spr(255+cell,sx, sy, 0)
         end
       end
     end
+  end
+  table.sort(oversprites, function(s1,s2) return s1[2]<s2[2] end)
+  for i=1,#oversprites do
+    local sprite=oversprites[i]
+    spr(271+sprite[3], sprite[1], sprite[2], 0)
   end
   print(points)
 end
