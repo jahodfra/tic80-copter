@@ -3,6 +3,19 @@
 -- desc:   Flight around the world.
 -- script: lua
 
+--[[ TODO list:
+* compass to show directions
+* try polygon base approach on strip
+* place couple of cities with flags
+* allow player to find the specific city and then navigate it to next random
+  city
+* add particle system for clouds
+* add cactuses into deserts
+* add particle system for speckles in the sea
+* add helicopter lights
+* for poles replace desert and rock with with snow and sea with ice
+]]
+
 W=1024
 H=512
 
@@ -289,23 +302,7 @@ function draw_copter(x, y, leaned)
   spr(304+phase+abs(leaned), x, y-2, 0)
 end
 
-function TIC()
-  local leaned=0
-  if btn(0) then
-    rot(1,speed,0,0)
-    leaned=-1
-  end
-  if btn(1) then
-    rot(1,-speed/2,0,0)
-    leaned=1
-  end
-  if btn(2) then rot(1,0,-speed/2,0)end
-  if btn(3) then rot(1,0,speed/2,0)end
-  if btn(4) then rot(1,0,0,rot_speed)end
-  if btn(5) then rot(1,0,0,-rot_speed)end
-  cls(2)
-
-  draw_strip()
+function draw_copter_and_shadow(leaned)
   local shift=4
   phase = tick // 5 % 2
   for i=0,15 do
@@ -316,7 +313,26 @@ function TIC()
     poke4(2*0x3ff0+i,i)
   end
   draw_copter(120-4, 68-4, -leaned)
+end
 
+function TIC()
+  local leaned=0
+  if btn(0) then
+    rot(1,speed,0,0)
+    leaned=-1
+  end
+  if btn(1) then
+    rot(1,-speed/2,0,0)
+    leaned=1
+  end
+  --if btn(2) then rot(1,0,-speed/2,0)end
+  --if btn(3) then rot(1,0,speed/2,0)end
+  if btn(2) then rot(1,0,0,rot_speed)end
+  if btn(3) then rot(1,0,0,-rot_speed)end
+  cls(2)
+
+  draw_strip()
+  draw_copter_and_shadow(leaned)
   print(quat_str(rotation),100, 100)
   tick = tick + 1
 end
