@@ -11,90 +11,48 @@ import math
 import sys
 
 
-CLEAR_CODE=2**16-1
-COLORS = 18
-
-def encode_lzw(data, S=COLORS):
-    lookup = {bytes([i]): i for i in range(S)}
-    result = []
-    chain = bytes()
-    next_lookup = len(lookup)
-    for d in data:
-        next_chain = chain + bytes([d])
-        if next_chain not in lookup:
-            result.append(lookup[chain])
-            if len(lookup) < CLEAR_CODE - 1:
-                lookup[next_chain] = next_lookup
-                next_lookup += 1
-            else:
-                result.append(CLEAR_CODE)
-                lookup = {bytes([i]): i for i in range(S)}
-                next_lookup = len(lookup)
-            chain = bytes([d])
-        else:
-            chain = next_chain
-    if chain:
-        result.append(lookup[chain])
-    return result
-
-
-def decode_lzw(codes, S=COLORS):
-    result = []
-    for code in [CLEAR_CODE] + codes:
-        if code == CLEAR_CODE:
-            lookup = [bytes([i]) for i in range(S)]
-            prefix = b""
-            continue
-        if code < len(lookup):
-            ret = lookup[code]
-            if prefix:
-                lookup.append(prefix + lookup[code][:1])
-            prefix = ret
-            result.extend(ret)
-        else:
-            prefix = prefix + prefix[:1]
-            lookup.append(prefix)
-            result.extend(prefix)
-    return result
+def split_into_chunks(w, row, splits):
+    free_space = w - len(row)
+    chunk_size = len(row) / splits
+    part_size = w // splits
+    new_row = []
+    start = 0
+    for i in range(splits-1):
+        end = start + chunk_size
+        chunk = row[round(start):round(end)]
+        new_row.extend(chunk)
+        chunk_space = min(part_size  - len(chunk), free_space)
+        free_space -= chunk_space
+        new_row.extend([16] * chunk_space)
+        start = end
+    new_row.extend(row[round(start):])
+    new_row.extend([16] * free_space)
+    if len(new_row) > 240:
+        # should not happen
+        print(len(new_row), len(row), chunk_size, part_size)
+    return new_row
+    
 
 
 def main():
     source = PIL.Image.open(sys.argv[1])
     w, h = source.size
     image_data = source.load()
+    splits = 8
 
-    # remove resolution in polar regions
     orig_data = []
-    for y in range(h):
-        rw = int(w * math.sin((y+1) / (h+2) * math.pi))
+    # remove resolution in polar regions
+    for y in range(17, h-16):
+        rw = int(w * math.sin(y / (h+2) * math.pi))
+        row = []
         for x in range(rw):
            item = image_data[x * w // rw, y]
-           orig_data.append(item)
-    print("checksum: ", sum(orig_data))
+           row.append(item)
+        orig_data.extend(split_into_chunks(w, row, splits))
 
-    # Compress
-    print(f"uncompressed {len(orig_data)//2}B")
-    encoded = encode_lzw(orig_data)
-    print(f"compressed by lzw {2*len(encoded)}B")
-    print("checksum encoded: ", sum(encoded))
-
-    # Write output files
-    compressed = []
-    for e in encoded:
-        compressed.append(e//256)
-        compressed.append(e%256)
-    L = len(encoded)
-    mappart = bytearray([L//256, L%256])
-    mappart.extend(compressed[:32640-2])
-    spritepart = bytes(compressed[32640-2:])
-    if len(spritepart) > 8192:
-        raise ValueError(f"Cannot fit into sprite area ({len(spritepart)})")
+    mappart = bytearray()
+    mappart.extend(orig_data)
     open(sys.argv[2] + ".map","wb").write(mappart)
-    open(sys.argv[2] + ".tiles","wb").write(spritepart)
-
-    # Check decompression algorithm
-    decoded = decode_lzw(encoded)
-    assert orig_data == decoded
 
 
 if __name__ == "__main__":
