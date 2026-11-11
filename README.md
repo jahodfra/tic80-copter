@@ -26,7 +26,17 @@ of the round). The needle top right points north.
 
 ## Build
 
-    make            # downloads ETOPO5 on first run, builds build/copter.tic
+    make            # downloads the data on first run, builds build/copter.tic
     make run        # opens it in ./tic80
     make sprites    # regenerate cart/sprites.gif (overwrites edits!)
     make cities     # regenerate cart/src/20_cities.lua
+
+## Credits
+
+- Land cover: "New Land Cover Classification Maps", image courtesy Boston
+  University and NASA GSFC (MODIS on Terra, 2002). The original download server
+  is retired; `make` fetches `lcc_global_8192.tif` from the Internet Archive copy
+  and checks its SHA-256.
+- Elevation and sea depth: ETOPO5, NOAA National Centers for Environmental
+  Information.
+- Cities: Natural Earth populated places (public domain), naturalearthdata.com.
