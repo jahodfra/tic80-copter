@@ -1,31 +1,40 @@
-.PHONY: build style clean all
+.PHONY: all run sprites cities data clean
 
 BUILD_DIR=build
-
-objects=$(BUILD_DIR)/copter.tic $(BUILD_DIR)/topomap.map $(BUILD_DIR)/topomap.tiles
 TIC_BIN=./tic80
+CART=$(BUILD_DIR)/copter.tic
+ETOPO=raw/etopo5/ETOPO5.DOS
+PLACES=raw/naturalearth/ne_10m_populated_places_simple.dbf
 
-all: build run
+all: $(CART)
 
-build: $(objects)
-	mkdir -p $(BUILD_DIR)
-run:
-	$(TIC_BIN) $(BUILD_DIR)/copter.tic -skip
+run: $(CART)
+	$(TIC_BIN) $(CART) -skip
 
-style:
-	luastyle -i copter.lua
-        
-$(BUILD_DIR)/topomap.map $(BUILD_DIR)/topomap.tiles: topomap.png prepare_map.py
-	python3 -m prepare_map topomap.png $(BUILD_DIR)/topomap
+# the cart: Lua sources + sprite sheet + world data in map banks 1..6
+$(CART): cart/src/*.lua cart/sprites.gif $(BUILD_DIR)/world.bin tools/build_cart.py
+	python3 tools/build_cart.py --src cart/src --sheet cart/sprites.gif \
+		--bank-data $(BUILD_DIR)/world.bin --out $(BUILD_DIR)/copter
 
+# terrain grid from NASA land cover + NOAA ETOPO5 elevation (takes ~1 minute)
+$(BUILD_DIR)/world.bin: tools/build_world.py lcc_global_8192.tif $(ETOPO)
+	python3 tools/build_world.py --out $@ --preview $(BUILD_DIR)/world.png
 
-$(BUILD_DIR)/copter.tic: copter.lua $(BUILD_DIR)/topomap.map $(BUILD_DIR)/topomap.tiles sprites.gif
-	python3 -m make_cartridge \
-	--code=copter.lua \
-	--map=$(BUILD_DIR)/topomap.map \
-	--tiles=$(BUILD_DIR)/topomap.tiles \
-	--sprites=sprites.gif \
-	-o $(BUILD_DIR)/copter.tic
-  
+$(ETOPO):
+	mkdir -p raw/etopo5
+	curl -L -o $@ https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO5/TOPO/ETOPO5/ETOPO5.DOS
+
+$(PLACES):
+	mkdir -p raw/naturalearth
+	curl -L -o raw/naturalearth/places.zip https://naciscdn.org/naturalearth/10m/cultural/ne_10m_populated_places_simple.zip
+	cd raw/naturalearth && unzip -o places.zip
+
+# generated sources that are kept in git (run explicitly: they overwrite edits)
+sprites:
+	python3 tools/make_sprites.py cart/sprites.gif
+
+cities: $(PLACES)
+	python3 tools/build_cities.py $(PLACES)
+
 clean:
-	-rm $(objects)
+	-rm -f $(CART) $(BUILD_DIR)/copter.lua $(BUILD_DIR)/world.bin $(BUILD_DIR)/world.png

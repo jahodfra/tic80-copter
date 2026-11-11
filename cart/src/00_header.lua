@@ -1,0 +1,4 @@
+-- title:  Copter Quest
+-- author: jahodfra
+-- desc:   Fly a helicopter around the Earth and find real cities.
+-- script: lua
